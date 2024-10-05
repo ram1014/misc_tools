@@ -1,0 +1,67 @@
+#!/bin/bash
+
+URL=$1
+BYTES_REMOVE="2"
+NO_SPLIT=$2
+CONT_LEN=`curl -k -L -I "$1" | grep "Content-Length" | awk '{print $2}'`
+TO_DOWNLOAD1=`awk -v a="$CONT_LEN" -v b="$BYTES_REMOVE" 'BEGIN { print int(a / b) }'`
+TO_DOWNLOAD2=`awk -v a="$TO_DOWNLOAD1" 'BEGIN { print int(a + 1) }'`
+
+echo "Len: $CONT_LEN firslimit: $TO_DOWNLOAD1 secstart: $TO_DOWNLOAD2"
+
+FILE_NAME=`echo ${URL##*/}`
+FILE_NAME=`echo "$FILE_NAME" | awk '{gsub("%20","_"); print $0}'`
+FILE_NAME_P1="${FILE_NAME}_p1"
+FILE_NAME_P2="${FILE_NAME}_p2"
+extension="${FILE_NAME##*.}"
+filename="${FILE_NAME%.*}"
+
+echo "Downloading file $FILE_NAME_P1 from 0-$TO_DOWNLOAD1"
+
+if [ "$NO_SPLIT" == "y" ]; then
+    curl -k "$URL" --output "$FILE_NAME" &
+    wait
+else
+
+    curl -k -r 0-$TO_DOWNLOAD1 "$URL" --output "$FILE_NAME_P1" &
+    #curl -k -r 0-$TO_DOWNLOAD1 "$URL" --output "$FILE_NAME_P1" 
+    
+    echo "Downloading file $FILE_NAME_P2 from $TO_DOWNLOAD2-$CONT_LEN"
+    
+    curl -k -r $TO_DOWNLOAD2-$CONT_LEN "$URL" --output "$FILE_NAME_P2" &
+    #curl -k -r $TO_DOWNLOAD2-$CONT_LEN "$URL" --output "$FILE_NAME_P2" 
+    wait
+    
+    
+    cat "$FILE_NAME_P1" "$FILE_NAME_P2" > "$FILE_NAME"
+    
+    if [ $? -eq 0 ] ; then
+        rm -f "$FILE_NAME_P1" "$FILE_NAME_P2"
+    else
+        echo "Error catting $FILE_NAME_P1 $FILE_NAME_P2 to create final $FILE_NAME"
+    fi
+fi
+
+
+if [ "$extension" == "rar" ];then
+    mkdir "$filename"
+    unrar x -kb "$FILE_NAME" "$filename"
+    if [  $? -eq 0 ]; then
+        rm -f "$FILE_NAME"
+    fi
+elif [ "$extension" == "zip" ]; then
+    mkdir "$filename"
+    unzip "$FILE_NAME" -d "$filename"
+    if [  $? -eq 0 ]; then
+        rm -f "$FILE_NAME"
+    fi
+elif [ "$extension" == "7z" ]; then
+    mkdir "$filename"
+    7z x "$FILE_NAME" -o"$filename"
+    if [  $? -eq 0 ]; then
+        rm -f "$FILE_NAME"
+    fi
+fi
+
+
+

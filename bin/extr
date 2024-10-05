@@ -1,0 +1,26 @@
+#!/bin/bash
+
+for f in "$@"
+do
+    echo "Processing $f file..."
+    extension="${f##*.}"
+    filename="${f%.*}"
+    if [ "$extension" == "rar" ];then
+        mkdir "$filename"
+        unrar x -kb "$f" "$filename"
+        if [  $? -eq 0 ]; then
+            rm -f "$f"
+        fi
+    elif [ "$extension" == "zip" ]; then
+        mkdir "$filename"
+        unzip "$f" -d "$filename"
+        if [  $? -eq 0 ]; then
+            rm -f "$f"
+        fi
+    fi
+  # take action on each file. $f store current file name
+done
+
+
+
+
